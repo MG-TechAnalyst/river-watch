@@ -68,6 +68,12 @@
     .field input, .field select { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.88rem; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     .small-note { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .msg ul { margin: 6px 0 6px 20px; }
+    .msg li { margin: 2px 0; }
+    .msg-heading { display: block; margin: 5px 0 3px; }
+    .msg-gap { height: 7px; }
+    .msg code { background: rgba(15,23,42,0.55); padding: 1px 4px; border-radius: 4px; }
+    .msg blockquote { border-left: 3px solid var(--accent); padding-left: 9px; color: #dbeafe; margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -80,7 +86,7 @@
     </div>
     <div class="header-actions">
       <button class="btn-secondary" id="refreshBtn">Refresh Live Data</button>
-      <button class="btn-primary" id="settingsBtn">Settings & API Key</button>
+      <button class="btn-primary" id="settingsBtn">Settings & Connection</button>
     </div>
   </header>
 
@@ -112,6 +118,7 @@
           </tbody>
         </table>
       </div>
+      <div id="dataQualityNote" class="small-note" style="padding:0 18px 10px;color:#fbbf24;">Historical Q95/Q99 thresholds and winter-event counts are provisional and not independently validated. River points require station/grid-cell verification.</div>
       <div class="crews-box" id="crewsBox">
         <div class="crew-card"><strong>Clonmel Crew</strong><span>Loading...</span></div>
         <div class="crew-card"><strong>Mallow Crew</strong><span>Loading...</span></div>
@@ -128,7 +135,7 @@
       <div class="chat-messages" id="chatMessages">
         <div class="msg msg-bot">Welcome to River Watch. Ask me for tonight's plan, why a town is at its current level, a "what if" river flow scenario, or the Area Manager's flood-defence study ranking.
 
-Configure your Google Sheet CSV URL / Apps Script URL and API key in Settings (stored in your browser only, never in code).</div>
+River Watch connects to its Apps Script backend. The Groq API key stays server-side in Script Properties; do not paste it into this public page.</div>
       </div>
       <div class="quick-prompts">
         <button class="chip" data-q="What is tonight's plan?">What is tonight's plan?</button>
@@ -149,31 +156,15 @@ Configure your Google Sheet CSV URL / Apps Script URL and API key in Settings (s
     <div class="modal">
       <h3>River Watch Settings</h3>
       <div class="field">
-        <label>Google Sheet Public CSV URL (Live Team Sheet)</label>
-        <input type="text" id="sheetCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv" />
-        <div class="small-note">Share your Sheet as "Anyone with the link can view" and paste its CSV export link.</div>
-      </div>
-      <div class="field">
-        <label>Optional: Google Apps Script Web App URL (Server-Side Relay)</label>
+        <label>Google Apps Script Web App URL (Server-Side Relay)</label>
         <input type="text" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" />
-        <div class="small-note">If set, River Watch routes questions through your Code.gs backend (key stays server-side).</div>
-      </div>
-      <hr style="border:0;border-top:1px solid var(--border);margin:14px 0;">
-      <div class="field">
-        <label>Client-Side LLM Provider (used if Apps Script URL is blank)</label>
-        <select id="llmProvider">
-          <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
-          <option value="openai">OpenAI (gpt-4o-mini)</option>
-          <option value="groq">Groq (llama-3.3-70b-versatile)</option>
-          <option value="anthropic">Anthropic (claude-3-5-haiku-latest)</option>
-        </select>
+        <div class="small-note">Connected to the Apps Script backend; the Groq key stays in Apps Script Script Properties.</div>
       </div>
       <div class="field">
-        <label>API Key (Stored in browser localStorage ONLY — never committed to GitHub)</label>
-        <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
+        <label>AI key security</label>
+        <div class="small-note">The Google Sheet is read by the bound Apps Script. The Groq API key is held only in Apps Script Script Properties; never paste it into this page or commit it to GitHub.</div>
       </div>
       <div class="modal-actions">
-        <button class="btn-secondary" id="forgetKeyBtn">Forget Key</button>
         <button class="btn-secondary" id="closeSettingsBtn">Cancel</button>
         <button class="btn-primary" id="saveSettingsBtn">Save & Reload</button>
       </div>
@@ -181,233 +172,55 @@ Configure your Google Sheet CSV URL / Apps Script URL and API key in Settings (s
   </div>
 
   <script>
-    // Starter fallback rows (only used if no Google Sheet CSV URL is configured yet)
-    const STARTER_SHEET = [
-      { town: "Clonmel", county: "Tipperary", river: "Suir", crew_based_here: "yes", barrier_sets: 1, pumps: 4, sandbags: 2000, staff_on_call: 6, flow_override_m3s: "", warning_override: "", notes: "Normal service" },
-      { town: "Fermoy", county: "Cork", river: "Blackwater", crew_based_here: "no", barrier_sets: 1, pumps: 3, sandbags: 1500, staff_on_call: 4, flow_override_m3s: "", warning_override: "", notes: "Normal service" },
-      { town: "Mallow", county: "Cork", river: "Blackwater", crew_based_here: "yes", barrier_sets: 1, pumps: 3, sandbags: 1200, staff_on_call: 4, flow_override_m3s: "", warning_override: "", notes: "Mallow crew van in repair: the Mallow crew can work in Mallow only tonight" },
-      { town: "Bandon", county: "Cork", river: "Bandon", crew_based_here: "no", barrier_sets: 0, pumps: 2, sandbags: 1800, staff_on_call: 3, flow_override_m3s: "", warning_override: "", notes: "Barrier set on loan to another council" },
-      { town: "Enniscorthy", county: "Wexford", river: "Slaney", crew_based_here: "no", barrier_sets: 1, pumps: 2, sandbags: 1000, staff_on_call: 3, flow_override_m3s: "", warning_override: "", notes: "Normal service" },
-      { town: "Ennis", county: "Clare", river: "Fergus", crew_based_here: "no", barrier_sets: 1, pumps: 2, sandbags: 900, staff_on_call: 3, flow_override_m3s: "", warning_override: "", notes: "Normal service" },
-      { town: "Athlone", county: "Westmeath", river: "Shannon", crew_based_here: "yes", barrier_sets: 1, pumps: 5, sandbags: 2500, staff_on_call: 6, flow_override_m3s: "", warning_override: "", notes: "Town spans Westmeath and Roscommon" },
-      { town: "Carrick-on-Shannon", county: "Leitrim", river: "Shannon", crew_based_here: "no", barrier_sets: 1, pumps: 2, sandbags: 800, staff_on_call: 2, flow_override_m3s: "", warning_override: "", notes: "Town spans Leitrim and Roscommon" }
-    ];
-
-    const CREW_AREAS = {
-      "Clonmel": ["Clonmel", "Fermoy", "Enniscorthy"],
-      "Mallow":  ["Mallow", "Fermoy", "Bandon"],
-      "Athlone": ["Athlone", "Carrick-on-Shannon", "Ennis"]
-    };
-
-    let historySummary = null;
     let liveState = null;
-    let chatHistory = [];
+    let jsonpCounter = 0;
+    const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwLikqvIe1pg6PPYBQ31mDifu6Qyqoi7I1rEcmXvnUKgc9hqbflACJnX9AyjAuuZDN4QQ/exec";
+    localStorage.removeItem("rw_api_key");
+    localStorage.removeItem("rw_provider");
 
-    // Load settings from localStorage
-    const getSettings = () => ({
-      sheetCsvUrl: localStorage.getItem("rw_sheet_url") || "",
-      appsScriptUrl: localStorage.getItem("rw_gas_url") || "",
-      provider: localStorage.getItem("rw_provider") || "gemini",
-      apiKey: localStorage.getItem("rw_api_key") || ""
-    });
-
-    function parseCSV(text) {
-      const lines = text.trim().split(/\r?\n/);
-      const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim().toLowerCase());
-      return lines.slice(1).map(line => {
-        const cols = [];
-        let cur = "", inQuotes = false;
-        for (let ch of line) {
-          if (ch === '"') inQuotes = !inQuotes;
-          else if (ch === ',' && !inQuotes) { cols.push(cur.trim()); cur = ""; }
-          else cur += ch;
-        }
-        cols.push(cur.trim());
-        const obj = {};
-        headers.forEach((h, i) => obj[h] = (cols[i] || "").replace(/^"|"$/g, ""));
-        return obj;
-      }).filter(r => r.town);
-    }
-
-    async function loadHistorySummary() {
-      if (historySummary) return historySummary;
-      const resp = await fetch("./history_summary.json");
-      if (!resp.ok) throw new Error("Could not load history_summary.json (ensure it is in the same folder as index.html)");
-      historySummary = await resp.json();
-      return historySummary;
-    }
-
-    async function fetchLiveWarnings() {
-      try {
-        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.met.ie/Open_Data/json/warning_IRELAND.json");
-        const resp = await fetch(proxyUrl);
-        if (!resp.ok) return { status: "Unavailable (CORS/Proxy)", warnings: [] };
-        const raw = await resp.json();
-        const now = new Date();
-        const horizon = new Date(now.getTime() + 48 * 3600 * 1000);
-        const active = (Array.isArray(raw) ? raw : []).filter(w => {
-          const onset = w.onset ? new Date(w.onset) : now;
-          const expiry = w.expiry ? new Date(w.expiry) : horizon;
-          return expiry >= now && onset <= horizon;
-        });
-        return { status: "Live (Met Eireann)", warnings: active };
-      } catch (e) {
-        return { status: "Fallback (0 active)", warnings: [] };
-      }
-    }
-
-    async function computeLiveStateClientSide() {
-      const settings = getSettings();
-      const hist = await loadHistorySummary();
-
-      // 1. Live Google Sheet
-      let sheetRows = STARTER_SHEET;
-      let sheetSource = "Starter fallback (set Google Sheet CSV URL in Settings)";
-      if (settings.sheetCsvUrl) {
-        const csvResp = await fetch(settings.sheetCsvUrl + "&_ts=" + Date.now());
-        if (csvResp.ok) {
-          sheetRows = parseCSV(await csvResp.text());
-          sheetSource = "Live Google Sheet CSV";
-        }
-      }
-
-      // 2. Live Open-Meteo Flood Forecasts (parallel)
-      const forecasts = {};
-      await Promise.all(hist.towns.map(async t => {
-        const url = `https://flood-api.open-meteo.com/v1/flood?latitude=${t.lat}&longitude=${t.lon}&daily=river_discharge&forecast_days=3`;
-        const r = await fetch(url);
-        const j = await r.json();
-        const dates = j.daily?.time || [];
-        const vals = j.daily?.river_discharge || [];
-        let peak = -1, peakDate = dates[0] || "";
-        vals.forEach((v, i) => { if (v !== null && v > peak) { peak = v; peakDate = dates[i]; } });
-        forecasts[t.town] = { peak_m3s: Number(peak.toFixed(2)), peak_date: peakDate };
-      }));
-
-      // 3. Live Met Eireann Warnings
-      const warningsFeed = await fetchLiveWarnings();
-
-      // 4. Deterministic Flood Plan Rules 1-7
-      const LEVELS = ["Normal", "Standby", "Barriers"];
-      const towns = sheetRows.map(row => {
-        const base = hist.towns.find(x => x.town.toLowerCase() === row.town.toLowerCase());
-        const fc = forecasts[base.town];
-        const hasFlowOv = String(row.flow_override_m3s || "").trim() !== "" && !isNaN(Number(row.flow_override_m3s));
-        const effPeak = hasFlowOv ? Number(row.flow_override_m3s) : fc.peak_m3s;
-        const warnOv = String(row.warning_override || "").trim().toLowerCase();
-        const hasWarnOv = warnOv === "orange" || warnOv === "red";
-        const notes = String(row.notes || "");
-
-        const counties = [row.county];
-        const span = notes.match(/spans\s+([A-Za-z]+)\s+and\s+([A-Za-z]+)/i);
-        if (span) {
-          if (!counties.includes(span[1])) counties.push(span[1]);
-          if (!counties.includes(span[2])) counties.push(span[2]);
-        }
-
-        const matchedWarnings = warningsFeed.warnings.filter(w => {
-          const txt = ((w.type || "") + " " + (w.headline || "")).toLowerCase();
-          if (!txt.includes("rain")) return false;
-          const reg = (Array.isArray(w.regions) ? w.regions.join(" ") : String(w.regions || "")).toLowerCase();
-          return counties.some(c => reg.includes(c.toLowerCase()) || reg.includes("ireland"));
-        });
-
-        let lvlIdx = effPeak >= base.p99_m3s ? 2 : (effPeak >= base.p95_m3s ? 1 : 0);
-        const liveOrangeRed = matchedWarnings.some(w => ["orange", "red"].includes(String(w.level || "").toLowerCase()));
-        const liveYellow = matchedWarnings.some(w => String(w.level || "").toLowerCase() === "yellow");
-        let escalated = false;
-        if (hasWarnOv || liveOrangeRed) {
-          if (lvlIdx < 2) lvlIdx++;
-          escalated = true;
-        }
-
-        const barrierSets = Number(row.barrier_sets || 0);
-        const canBarrier = barrierSets > 0 && !notes.toLowerCase().includes("barrier set on loan");
-
-        return {
-          town: base.town,
-          counties,
-          river: row.river,
-          barrier_sets: barrierSets,
-          pumps: Number(row.pumps || 0),
-          sandbags: Number(row.sandbags || 0),
-          staff_on_call: Number(row.staff_on_call || 0),
-          notes,
-          live_forecast_peak_m3s: fc.peak_m3s,
-          live_forecast_peak_date: fc.peak_date,
-          effective_peak_m3s: effPeak,
-          rehearsal_flow_used: hasFlowOv,
-          rehearsal_warning_used: hasWarnOv ? warnOv : null,
-          p95_m3s: base.p95_m3s,
-          p99_m3s: base.p99_m3s,
-          pct_over_p99: Number((((effPeak - base.p99_m3s) / base.p99_m3s) * 100).toFixed(2)),
-          matched_live_warnings: matchedWarnings,
-          yellow_warning_noted: liveYellow,
-          warning_escalated: escalated,
-          level: LEVELS[lvlIdx],
-          can_have_barriers: canBarrier,
-          assigned_crew: null,
-          flagged_to_area_manager: false,
-          action_summary: ""
+    // JSONP avoids cross-origin fetch restrictions for Apps Script ContentService responses.
+    function jsonpRequest(baseUrl, params = {}, timeoutMs = 90000) {
+      return new Promise((resolve, reject) => {
+        let requestUrl;
+        try { requestUrl = new URL(baseUrl); }
+        catch (_) { reject(new Error("Invalid Apps Script Web App URL.")); return; }
+        const callbackName = "rwCallback" + Date.now() + (++jsonpCounter);
+        const script = document.createElement("script");
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+          script.remove();
         };
+        window[callbackName] = data => { cleanup(); resolve(data); };
+        script.onerror = () => { cleanup(); reject(new Error("Apps Script request failed. Confirm the deployment is accessible to Anyone.")); };
+        Object.entries(params).forEach(([key, value]) => requestUrl.searchParams.set(key, String(value)));
+        requestUrl.searchParams.set("callback", callbackName);
+        requestUrl.searchParams.set("_ts", String(Date.now()));
+        const timer = setTimeout(() => { cleanup(); reject(new Error("Apps Script request timed out.")); }, timeoutMs);
+        script.async = true;
+        script.src = requestUrl.toString();
+        document.head.appendChild(script);
       });
-
-      const mallowRow = towns.find(t => t.town === "Mallow");
-      const mallowRestricted = mallowRow && mallowRow.notes.toLowerCase().includes("mallow only");
-      const cap = { Clonmel: 2, Mallow: 2, Athlone: 2 };
-      const crewAssignments = { Clonmel: [], Mallow: [], Athlone: [] };
-
-      towns.filter(t => t.level === "Barriers")
-        .sort((a, b) => (b.pct_over_p99 - a.pct_over_p99) || (b.effective_peak_m3s - a.effective_peak_m3s))
-        .forEach(t => {
-          if (!t.can_have_barriers) {
-            t.flagged_to_area_manager = true;
-            t.action_summary = "No barrier set (Rule 7) -> Standby + Flag Area Manager";
-            return;
-          }
-          const eligible = Object.keys(CREW_AREAS).filter(c => {
-            if (!CREW_AREAS[c].includes(t.town)) return false;
-            if (c === "Mallow" && mallowRestricted && t.town !== "Mallow") return false;
-            return cap[c] > 0;
-          }).sort((a, b) => (a === t.town ? -1 : b === t.town ? 1 : cap[b] - cap[a]));
-
-          if (eligible.length) {
-            const chosen = eligible[0];
-            cap[chosen]--;
-            crewAssignments[chosen].push(t.town);
-            t.assigned_crew = chosen + " Crew";
-            t.action_summary = `Barriers by ${chosen} Crew (<18:00)`;
-          } else {
-            t.flagged_to_area_manager = true;
-            t.action_summary = "No crew available (Rule 6) -> Standby + Flag Area Manager";
-          }
-        });
-
-      towns.forEach(t => {
-        if (t.level === "Standby") t.action_summary = `Standby (${t.staff_on_call} staff, ${t.pumps} pumps, ${t.sandbags} sandbags)`;
-        else if (t.level === "Normal") t.action_summary = "Normal monitoring";
-      });
-
-      return {
-        generated_at: new Date().toISOString(),
-        sources: { river_forecast: "Open-Meteo Flood API (3-day peak)", weather_warnings: warningsFeed.status, team_sheet: sheetSource },
-        towns,
-        crew_assignments: crewAssignments,
-        mallow_van_restricted: mallowRestricted,
-        area_manager_study: hist.area_manager_summary,
-        history_table: hist.towns
-      };
     }
+
+    // The page stores only the Apps Script URL. The Groq API key remains server-side.
+    const getSettings = () => ({
+      appsScriptUrl: localStorage.getItem("rw_gas_url") || DEFAULT_APPS_SCRIPT_URL
+    });
 
     function renderState(state) {
       liveState = state;
-      document.getElementById("lastUpdated").textContent = "Updated: " + new Date(state.generated_at).toLocaleTimeString();
+      document.getElementById("lastUpdated").textContent = "Updated: " + new Date(state.generated_at).toLocaleTimeString() + " | provisional history";
       const tbody = document.getElementById("statusTableBody");
       tbody.innerHTML = state.towns.map(t => {
         const rehFlow = t.rehearsal_flow_used ? `<span class="tag-rehearsal">REHEARSAL</span>` : "";
+        const warningFeedAvailable = String((state.sources || {}).weather_warnings || "").toLowerCase().includes("status: live");
         const warnTxt = t.rehearsal_warning_used
           ? `<span class="tag-rehearsal">${t.rehearsal_warning_used.toUpperCase()}</span>`
-          : (t.matched_live_warnings.length ? t.matched_live_warnings.map(w => w.level).join(", ") : "None");
+          : (t.matched_live_warnings.length ? t.matched_live_warnings.map(w => w.level).join(", ") : (warningFeedAvailable ? "None" : "Feed unavailable"));
         return `<tr>
           <td><strong>${t.town}</strong><br><span style="color:var(--muted);font-size:0.75rem;">${t.river} (${t.counties.join("/")})</span></td>
           <td>${t.effective_peak_m3s}${rehFlow}<br><span style="color:var(--muted);font-size:0.72rem;">${t.live_forecast_peak_date}</span></td>
@@ -428,29 +241,64 @@ Configure your Google Sheet CSV URL / Apps Script URL and API key in Settings (s
       const s = getSettings();
       document.getElementById("brainStatus").textContent = s.appsScriptUrl
         ? "Brain: Apps Script (Server-Side)"
-        : (s.apiKey ? `Brain: ${s.provider.toUpperCase()} (Browser Key)` : "Brain: Deterministic (No Key)");
+        : "Brain: Connection not configured";
     }
 
     async function refreshData() {
       document.getElementById("lastUpdated").textContent = "Fetching live data...";
       const s = getSettings();
+      document.getElementById("brainStatus").textContent = "Brain: Apps Script (Server-Side)";
       try {
-        if (s.appsScriptUrl) {
-          const r = await fetch(s.appsScriptUrl);
-          const j = await r.json();
-          if (j.ok) { renderState(j.state); return; }
-        }
-        const st = await computeLiveStateClientSide();
-        renderState(st);
+        if (!s.appsScriptUrl) throw new Error("Add the Apps Script Web App URL in Settings.");
+        const payload = await jsonpRequest(s.appsScriptUrl);
+        if (!payload.ok) throw new Error(payload.error || "Apps Script returned an error.");
+        renderState(payload.state);
       } catch (err) {
         document.getElementById("lastUpdated").textContent = "Error: " + err.message;
+        document.getElementById("brainStatus").textContent = "Brain: Apps Script (Connection Error)";
       }
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function safeAssistantHtml(value) {
+      const lines = String(value || "").replace(/\r/g, "").split("\n");
+      const html = [];
+      let inList = false;
+      const inline = s => escapeHtml(s)
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+      const closeList = () => { if (inList) { html.push("</ul>"); inList = false; } };
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) { closeList(); html.push("<div class=\"msg-gap\"></div>"); return; }
+        const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+        if (heading) { closeList(); html.push("<strong class=\"msg-heading\">" + inline(heading[1]) + "</strong>"); return; }
+        const item = trimmed.match(/^[-•]\s+(.+)$/);
+        if (item) { if (!inList) { html.push("<ul>"); inList = true; } html.push("<li>" + inline(item[1]) + "</li>"); return; }
+        closeList();
+        if (trimmed.startsWith(">")) html.push("<blockquote>" + inline(trimmed.replace(/^>\s?/, "")) + "</blockquote>");
+        else if (/^---+$/.test(trimmed)) html.push("<hr>");
+        else html.push("<div>" + inline(line) + "</div>");
+      });
+      closeList();
+      return html.join("");
+    }
+
+    function setAssistantText(element, value) {
+      element.innerHTML = safeAssistantHtml(value);
     }
 
     function appendMessage(role, text) {
       const div = document.createElement("div");
       div.className = "msg " + (role === "user" ? "msg-user" : "msg-bot");
-      div.textContent = text;
+      if (role === "user") div.textContent = text;
+      else setAssistantText(div, text);
       const box = document.getElementById("chatMessages");
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
@@ -458,87 +306,19 @@ Configure your Google Sheet CSV URL / Apps Script URL and API key in Settings (s
     }
 
     async function askQuestion(question) {
-      if (!question.trim()) return;
+      if (!question || !question.trim()) return;
       appendMessage("user", question);
-      const thinking = appendMessage("bot", "Reading live Sheet, Open-Meteo river forecasts, and Met Eireann warnings...");
-
-      // Always refresh live state on every question!
+      const thinking = appendMessage("bot", "Reading the live Sheet, river forecast and official warning feed...");
       const s = getSettings();
       try {
-        if (s.appsScriptUrl) {
-          const resp = await fetch(s.appsScriptUrl, {
-            method: "POST",
-            body: JSON.stringify({ question, history: chatHistory })
-          });
-          const data = await resp.json();
-          if (!data.ok) throw new Error(data.error);
-          renderState(data.state);
-          thinking.textContent = data.answer;
-          chatHistory.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
-          return;
-        }
-
-        const state = await computeLiveStateClientSide();
-        renderState(state);
-
-        if (!s.apiKey) {
-          thinking.textContent = buildDeterministicFallback(question, state);
-          return;
-        }
-
-        const systemPrompt = `You are River Watch, an AI decision-support assistant for an Irish flood response team.
-Use ONLY the live verified JSON state below. Cite exact flow (m3/s), 95th/99th percentiles, dates, warnings, and notes.
-Always flag rehearsal overrides if present. For out-of-scope questions (individual houses, coastal/tidal flooding, road closures, insurance), decline honestly and refer to the council's area office. Remind the user that a human Duty Officer makes the final decision.
-LIVE STATE:\n${JSON.stringify(state)}`;
-
-        let reply = "";
-        if (s.provider === "gemini") {
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(s.apiKey)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ role: "user", parts: [{ text: question }] }]
-            })
-          });
-          const j = await r.json();
-          if (!j.candidates) throw new Error(j.error?.message || "Gemini API error");
-          reply = j.candidates[0].content.parts[0].text;
-        } else if (s.provider === "openai" || s.provider === "groq") {
-          const ep = s.provider === "groq" ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
-          const mdl = s.provider === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o-mini";
-          const r = await fetch(ep, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.apiKey },
-            body: JSON.stringify({ model: mdl, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: question }], temperature: 0.2 })
-          });
-          const j = await r.json();
-          if (!j.choices) throw new Error(j.error?.message || "API error");
-          reply = j.choices[0].message.content;
-        } else {
-          throw new Error("For Anthropic browser calls, use the Apps Script URL to avoid CORS restrictions.");
-        }
-
-        thinking.textContent = reply;
-        chatHistory.push({ role: "user", content: question }, { role: "assistant", content: reply });
+        if (!s.appsScriptUrl) throw new Error("Add the Apps Script Web App URL in Settings.");
+        const payload = await jsonpRequest(s.appsScriptUrl, { action: "ask", question: question });
+        if (!payload.ok) throw new Error(payload.error || "Apps Script could not answer the question.");
+        renderState(payload.state);
+        setAssistantText(thinking, payload.answer || "The assistant returned an empty answer.");
       } catch (err) {
         thinking.textContent = "Error: " + err.message;
       }
-    }
-
-    function buildDeterministicFallback(q, state) {
-      const ql = q.toLowerCase();
-      if (ql.includes("house") || ql.includes("home") || ql.includes("insurance") || ql.includes("road") || ql.includes("coastal")) {
-        return "Out of Scope (Flood Plan Rule 9): River Watch does not cover individual homes, coastal/tidal flooding, road closures, or insurance. Please contact the local council's area office.";
-      }
-      if (ql.includes("study") || ql.includes("first in line") || ql.includes("permanent wall")) {
-        const am = state.area_manager_study;
-        return `Area Manager Flood-Defence Study (Rule 8):\nTop town: ${am.top_town} (${am.top_town_events} winter high-flow events across 2016/17–2024/25).\nTrend: ${am.trend}.\nLimitation: ${am.limitation}`;
-      }
-      const lines = state.towns.map(t =>
-        `- ${t.town} (${t.river}): ${t.level} | Peak ${t.effective_peak_m3s} m3/s${t.rehearsal_flow_used ? " [REHEARSAL]" : ""} vs p95=${t.p95_m3s} / p99=${t.p99_m3s} | ${t.action_summary}`
-      );
-      return `Tonight's Flood Plan Recommendation (No LLM key set — deterministic mode):\n${lines.join("\n")}\n\nNote: AI/tool recommends only; the Duty Officer makes the final decision by 16:00.`;
     }
 
     // UI bindings
@@ -559,25 +339,14 @@ LIVE STATE:\n${JSON.stringify(state)}`;
     const modal = document.getElementById("settingsModal");
     document.getElementById("settingsBtn").onclick = () => {
       const s = getSettings();
-      document.getElementById("sheetCsvUrl").value = s.sheetCsvUrl;
       document.getElementById("appsScriptUrl").value = s.appsScriptUrl;
-      document.getElementById("llmProvider").value = s.provider;
-      document.getElementById("apiKeyInput").value = s.apiKey;
       modal.classList.add("open");
     };
     document.getElementById("closeSettingsBtn").onclick = () => modal.classList.remove("open");
     document.getElementById("saveSettingsBtn").onclick = () => {
-      localStorage.setItem("rw_sheet_url", document.getElementById("sheetCsvUrl").value.trim());
       localStorage.setItem("rw_gas_url", document.getElementById("appsScriptUrl").value.trim());
-      localStorage.setItem("rw_provider", document.getElementById("llmProvider").value);
-      localStorage.setItem("rw_api_key", document.getElementById("apiKeyInput").value.trim());
       modal.classList.remove("open");
       refreshData();
-    };
-    document.getElementById("forgetKeyBtn").onclick = () => {
-      localStorage.removeItem("rw_api_key");
-      document.getElementById("apiKeyInput").value = "";
-      alert("API key removed from browser storage.");
     };
 
     refreshData();

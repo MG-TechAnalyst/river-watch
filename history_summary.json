@@ -1,13 +1,22 @@
 {
   "metadata": {
     "project": "River Watch (NCI BDAIB CA2)",
-    "source": "Open-Meteo Flood API (GloFAS v4 / Copernicus Emergency Management Service)",
+    "source": "Legacy prototype metadata cites Open-Meteo Flood API (GloFAS v4 / Copernicus); provenance and daily source series not supplied.",
     "source_url": "https://flood-api.open-meteo.com/v1/flood",
-    "licence": "CC-BY-4.0 (Copernicus / ECMWF GloFAS & Open-Meteo)",
-    "history_period": "2016-01-01 to 2025-12-31 (10 full years, 3,653 daily values per town)",
+    "licence": "Open-Meteo API data: CC BY 4.0; verify original data provenance before relying on stored thresholds.",
+    "history_period": "Legacy prototype claim: 2016-01-01 to 2025-12-31; NOT independently verified.",
     "winter_definition": "1 October to 31 March across 9 winters (2016/17 to 2024/25)",
     "event_definition": "A run of one or more consecutive days at or above the town's 99th percentile daily discharge (m3/s)",
-    "note": "Run refreshHistoricalSummary() in Code.gs to regenerate exact figures directly from the live Open-Meteo Flood API if needed."
+    "note": "Do not run a legacy refresh routine. The historic percentiles and winter event counts are retained only for prototype reproducibility and must be recomputed from verified same-river daily records.",
+    "verification_status": "PROVISIONAL / NOT VALIDATED",
+    "important_validation_note": "GloFAS v4 reanalysis is documented through July 2022, so it cannot substantiate a complete 2016-2025 daily series. The stored thresholds and winter-event totals are legacy prototype values; raw daily data, exact river-point match and independent calculations are not supplied.",
+    "refresh_note": "Do not run the legacy refresh routine for 2016-2025. Select the correct OPW daily discharge station for each town, verify at least ten full years of daily mean discharge and quality codes, calculate Q95/Q99 using a stated method, count separate winter runs at or above Q99, and replace the provisional statistics.",
+    "opw_station_crosscheck_source": "https://waterlevel.ie/list/ (OPW hydrometric station list; station identifiers and listed waterbodies)",
+    "opw_station_crosscheck_status": "Station candidates for all eight towns were identified in the OPW station list. Daily discharge archive coverage, point coordinates and completeness for a full ten-year period have NOT been verified.",
+    "town_station_candidates": "Ennis candidate uses OPW station 27023 Victoria Bridge on the Fergus, rather than the Ennis Bridge Fergus Estuary station; this is a candidate only, not a validated daily discharge series.",
+    "raw_daily_time_series_included": false,
+    "daily_record_count_claimed_by_legacy_metadata": 3653,
+    "warning": "The legacy 3,653-day 2016-2025 claim is unsupported by GloFAS v4 reanalysis, which ends July 2022. OPW gauge candidates are not proof that a ten-year daily archive was downloaded or checked."
   },
   "towns": [
     {
@@ -33,7 +42,13 @@
       },
       "total_winter_events": 16,
       "first_four_winters_events": 6,
-      "last_four_winters_events": 9
+      "last_four_winters_events": 9,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "16011",
+      "opw_listed_waterbody": "Suir",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Clonmel"
     },
     {
       "town": "Fermoy",
@@ -58,7 +73,13 @@
       },
       "total_winter_events": 14,
       "first_four_winters_events": 6,
-      "last_four_winters_events": 7
+      "last_four_winters_events": 7,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "18106",
+      "opw_listed_waterbody": "Blackwater [Munster]",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Fermoy Bridge U/S"
     },
     {
       "town": "Mallow",
@@ -83,7 +104,13 @@
       },
       "total_winter_events": 12,
       "first_four_winters_events": 5,
-      "last_four_winters_events": 6
+      "last_four_winters_events": 6,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "18056",
+      "opw_listed_waterbody": "Blackwater [Munster]",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Mallow Town Bridge U/S"
     },
     {
       "town": "Bandon",
@@ -108,7 +135,13 @@
       },
       "total_winter_events": 17,
       "first_four_winters_events": 6,
-      "last_four_winters_events": 9
+      "last_four_winters_events": 9,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "20001",
+      "opw_listed_waterbody": "Bandon",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Bandon"
     },
     {
       "town": "Enniscorthy",
@@ -133,7 +166,13 @@
       },
       "total_winter_events": 15,
       "first_four_winters_events": 5,
-      "last_four_winters_events": 9
+      "last_four_winters_events": 9,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "12002",
+      "opw_listed_waterbody": "Slaney",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Enniscorthy"
     },
     {
       "town": "Ennis",
@@ -158,7 +197,13 @@
       },
       "total_winter_events": 10,
       "first_four_winters_events": 4,
-      "last_four_winters_events": 5
+      "last_four_winters_events": 5,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "27023",
+      "opw_listed_waterbody": "Fergus",
+      "opw_station_note": "Candidate upstream Fergus gauge candidate; daily archive coverage and proximity to Ennis centre not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Victoria Bridge"
     },
     {
       "town": "Athlone",
@@ -183,7 +228,13 @@
       },
       "total_winter_events": 11,
       "first_four_winters_events": 5,
-      "last_four_winters_events": 5
+      "last_four_winters_events": 5,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "26027",
+      "opw_listed_waterbody": "Shannon",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Athlone"
     },
     {
       "town": "Carrick-on-Shannon",
@@ -208,7 +259,13 @@
       },
       "total_winter_events": 13,
       "first_four_winters_events": 5,
-      "last_four_winters_events": 7
+      "last_four_winters_events": 7,
+      "verification_status": "Provisional; raw daily series, OPW daily archive coverage and exact point validation not included",
+      "opw_candidate_station_id": "26324",
+      "opw_listed_waterbody": "Shannon",
+      "opw_station_note": "Candidate river identity cross-checked in OPW station list; daily archive coverage not checked.",
+      "opw_archive_coverage_verified": false,
+      "opw_candidate_station_name": "Carrick-On-Shannon"
     }
   ],
   "area_manager_summary": {
@@ -217,6 +274,7 @@
     "first_four_winters": 6,
     "last_four_winters": 9,
     "trend": "Higher in the last four winters (9 events in 2021/22-2024/25 vs 6 events in 2016/17-2019/20)",
-    "limitation": "Event counts alone cannot tell the Area Manager how much property damage occurred, how long each high-flow event lasted, or what permanent flood defences are already constructed in each town."
+    "limitation": "Event counts alone cannot tell the Area Manager how much property damage occurred, how long each high-flow event lasted, or what permanent flood defences are already constructed in each town.",
+    "verification_status": "Provisional; depends on unverified winter-event counts"
   }
 }
